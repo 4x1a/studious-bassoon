@@ -1,0 +1,18 @@
+# environment
+.env
+flyervenv/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+
+# uploads and outputs (local files)
+uploads/
+outputs/
+
+# database (if any local sqlite)
+*.db
+
+# mac
+.DS_Store

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Choose Template — Flyer Maker</title>
+  <style>
+    @font-face {
+      font-family: 'Bebas Neue';
+      src: url('/static/BebasNeue-Regular.ttf') format('truetype');
+    }
+    @font-face {
+      font-family: 'Noto Sans SC';
+      src: url('/static/NotoSansSC-SemiBold.ttf') format('truetype');
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: 'Noto Sans SC';
+      src: url('/static/NotoSansSC-Bold.ttf') format('truetype');
+      font-weight: 700;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: #f5f5f0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a1a1a;
+      color: white;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    header a {
+      color: #aaa;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    header a:hover { color: white; }
+
+    header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 2px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #888;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    .template-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 20px;
+    }
+
+    .template-card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: all 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .template-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+      transform: translateY(-2px);
+    }
+
+    .template-card.selected {
+      border-color: #e8312a;
+    }
+
+    .template-preview {
+      background: #f0f0eb;
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 180px;
+    }
+
+    /* Mini grid previews */
+    .grid-preview {
+      display: grid;
+      gap: 4px;
+    }
+
+    .grid-preview.g3x3 {
+      grid-template-columns: repeat(3, 36px);
+      grid-template-rows: repeat(3, 36px);
+    }
+
+    .grid-preview.g4x3 {
+      grid-template-columns: repeat(4, 28px);
+      grid-template-rows: repeat(3, 36px);
+    }
+
+    .grid-cell {
+      background: #ddd;
+      border-radius: 3px;
+    }
+
+    .template-info {
+      padding: 16px 20px;
+    }
+
+    .template-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+    }
+
+    .template-desc {
+      font-size: 13px;
+      color: #888;
+    }
+
+    .selected-indicator {
+      display: none;
+      background: #e8312a;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 99px;
+      margin-top: 8px;
+      width: fit-content;
+    }
+
+    .template-card.selected .selected-indicator {
+      display: block;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px;
+      color: #aaa;
+      grid-column: 1 / -1;
+    }
+
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid #e0e0e0;
+      padding: 16px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .selected-label {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .btn {
+      padding: 12px 28px;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover { opacity: 0.8; }
+    .btn-primary { background: #e8312a; color: white; }
+
+    .pb { padding-bottom: 80px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="/static/upload.html">← Back</a>
+  <h1>Choose Template</h1>
+</header>
+
+<div class="container pb">
+  <div class="section-title">Available Templates</div>
+  <div class="template-grid" id="template-grid">
+    <div class="empty-state">Loading templates...</div>
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <span class="selected-label" id="selected-label">No template selected</span>
+  <button class="btn btn-primary" onclick="continueToNext()">Continue →</button>
+</div>
+
+<script>
+  const API = 'http://localhost:8000';
+  const projectId = sessionStorage.getItem('project_id');
+  let selectedTemplateId = null;
+
+  // template visual configs
+  const templateVisuals = {
+    'Instagram 3x3': { gridClass: 'g3x3', cells: 9, desc: '9 items · Square format · Social media' },
+    'TV Display 4x3': { gridClass: 'g4x3', cells: 12, desc: '12 items · Vertical screen · In-store display' },
+  };
+
+  async function loadTemplates() {
+    // we don't have a templates router so we'll call the DB indirectly
+    // for now fetch from a simple endpoint we'll add, or hardcode from seed
+    const res = await fetch(`${API}/templates/`);
+    if (!res.ok) {
+      // fallback: show templates from sessionStorage if available
+      renderTemplates([]);
+      return;
+    }
+    const templates = await res.json();
+    renderTemplates(templates);
+  }
+
+  function renderTemplates(templates) {
+    const grid = document.getElementById('template-grid');
+
+    if (templates.length === 0) {
+      grid.innerHTML = '<div class="empty-state">No templates found.</div>';
+      return;
+    }
+
+    grid.innerHTML = templates.map(t => {
+      const visual = templateVisuals[t.name] || { gridClass: 'g3x3', cells: 9, desc: '' };
+      const cells = Array(visual.cells).fill('<div class="grid-cell"></div>').join('');
+      return `
+        <div class="template-card" id="tmpl-${t.id}" onclick="selectTemplate('${t.id}', '${t.name}')">
+          <div class="template-preview">
+            <div class="grid-preview ${visual.gridClass}">
+              ${cells}
+            </div>
+          </div>
+          <div class="template-info">
+            <div class="template-name">${t.name}</div>
+            <div class="template-desc">${visual.desc}</div>
+            <div class="selected-indicator">✓ Selected</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function selectTemplate(id, name) {
+    // deselect previous
+    document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById(`tmpl-${id}`).classList.add('selected');
+    selectedTemplateId = id;
+    document.getElementById('selected-label').textContent = `Selected: ${name}`;
+  }
+
+  async function continueToNext() {
+    if (!selectedTemplateId) {
+      alert('Please select a template first.');
+      return;
+    }
+
+    // save template to project
+    await fetch(`${API}/projects/${projectId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template_id: selectedTemplateId })
+    });
+
+    sessionStorage.setItem('template_id', selectedTemplateId);
+    window.location.href = '/static/editor.html';
+  }
+
+  loadTemplates();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flyer Maker</title>
+  <style>
+    @font-face {
+  font-family: 'Bebas Neue';
+  src: url('/static/BebasNeue-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Noto Sans SC';
+  src: url('/static/NotoSansSC-SemiBold.ttf') format('truetype');
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'Noto Sans SC';
+  src: url('/static/NotoSansSC-Bold.ttf') format('truetype');
+  font-weight: 700;
+}
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: #f5f5f0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a1a1a;
+      color: white;
+      padding: 24px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 36px;
+      letter-spacing: 2px;
+    }
+
+    header span {
+      font-size: 14px;
+      color: #aaa;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+
+    .new-project-btn {
+      display: block;
+      width: 100%;
+      padding: 20px;
+      background: #e8312a;
+      color: white;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 2px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+
+    .new-project-btn:hover { background: #c0251f; }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #888;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin: 48px 0 16px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px;
+      color: #aaa;
+      font-size: 15px;
+      background: white;
+      border-radius: 8px;
+    }
+
+    .project-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .project-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .project-info h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+    }
+
+    .project-meta {
+      font-size: 13px;
+      color: #888;
+      display: flex;
+      gap: 16px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-draft { background: #fff3cd; color: #856404; }
+    .status-exported { background: #d1e7dd; color: #0a3622; }
+
+    .project-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover { opacity: 0.8; }
+    .btn-edit { background: #1a1a1a; color: white; }
+    .btn-export { background: #e8312a; color: white; }
+    .btn-delete { background: #f0f0f0; color: #666; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Flyer Maker</h1>
+  <span>Good Supermarket</span>
+</header>
+
+<div class="container">
+  <a href="/static/upload.html" class="new-project-btn">+ Start New Project</a>
+
+  <div class="section-title">Past Projects</div>
+  <div id="project-list" class="project-list">
+    <div class="empty-state">Loading projects...</div>
+  </div>
+</div>
+
+<script>
+  const API = 'http://localhost:8000';
+
+  async function loadProjects() {
+    const res = await fetch(`${API}/projects/`);
+    const projects = await res.json();
+    const list = document.getElementById('project-list');
+
+    if (projects.length === 0) {
+      list.innerHTML = '<div class="empty-state">No projects yet. Start one above!</div>';
+      return;
+    }
+
+    list.innerHTML = projects.map(p => `
+      <div class="project-card">
+        <div class="project-info">
+          <h2>${p.name}</h2>
+          <div class="project-meta">
+            <span>${formatDate(p.updated_at)}</span>
+            <span class="status-badge status-${p.status}">${p.status}</span>
+          </div>
+        </div>
+        <div class="project-actions">
+          <a href="/static/upload.html?project_id=${p.id}" class="btn btn-edit">Edit</a>
+          <button class="btn btn-export" onclick="exportProject('${p.id}')">Export</button>
+          <button class="btn btn-delete" onclick="deleteProject('${p.id}')">Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  async function exportProject(id) {
+    const res = await fetch(`${API}/export/${id}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      alert(`Exported ${data.pages} page(s) successfully.`);
+      loadProjects();
+    }
+  }
+
+  async function deleteProject(id) {
+    if (!confirm('Delete this project? This cannot be undone.')) return;
+    await fetch(`${API}/projects/${id}`, { method: 'DELETE' });
+    loadProjects();
+  }
+
+  loadProjects();
+</script>
+
+</body>
+</html>
