@@ -279,12 +279,23 @@
       return;
     }
 
+    if (!projectId) {
+      alert('No project found — please start again.');
+      window.location.href = '/static/index.html';
+      return;
+    }
+
     // save template to project
-    await fetch(`${API}/projects/${projectId}`, {
+    const res = await fetch(`${API}/projects/${projectId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ template_id: selectedTemplateId })
     });
+
+    if (!res.ok) {
+      alert('Failed to save template to project. Please try again.');
+      return;
+    }
 
     sessionStorage.setItem('template_id', selectedTemplateId);
     window.location.href = '/static/editor.html';

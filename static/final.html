@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Final Export — Flyer Maker</title>
+  <style>
+    @font-face {
+      font-family: 'Bebas Neue';
+      src: url('/static/BebasNeue-Regular.ttf') format('truetype');
+    }
+    @font-face {
+      font-family: 'Noto Sans SC';
+      src: url('/static/NotoSansSC-SemiBold.ttf') format('truetype');
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: 'Noto Sans SC';
+      src: url('/static/NotoSansSC-Bold.ttf') format('truetype');
+      font-weight: 700;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: #f5f5f0;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1a1a1a;
+      color: white;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header .left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    header a {
+      color: #aaa;
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.15s;
+    }
+
+    header a:hover { color: white; }
+
+    header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 2px;
+    }
+
+    .project-name-badge {
+      font-size: 13px;
+      color: #666;
+      background: #2a2a2a;
+      padding: 5px 12px;
+      border-radius: 99px;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Loading overlay ── */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: #1a1a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      z-index: 100;
+      transition: opacity 0.4s;
+    }
+
+    #loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid #333;
+      border-top-color: #e8312a;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px;
+      letter-spacing: 3px;
+      color: #888;
+    }
+
+    .loading-sub {
+      font-size: 13px;
+      color: #555;
+      margin-top: -12px;
+    }
+
+    /* ── Main layout ── */
+    .main {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: calc(100vh - 70px);
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: white;
+      border-right: 1px solid #e8e8e0;
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: calc(100vh - 70px);
+      overflow-y: auto;
+    }
+
+    .sidebar-section {
+      padding: 20px 20px 0;
+      border-bottom: 1px solid #f0f0e8;
+    }
+
+    .sidebar-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #bbb;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    /* Page thumbnails nav */
+    .page-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px 20px;
+    }
+
+    .page-thumb {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.15s;
+    }
+
+    .page-thumb:hover {
+      background: #f5f5f0;
+    }
+
+    .page-thumb.active {
+      border-color: #e8312a;
+      background: #fff5f5;
+    }
+
+    .page-thumb img {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: #f0f0eb;
+      flex-shrink: 0;
+    }
+
+    .page-thumb-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .page-thumb-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+
+    .page-thumb-count {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 2px;
+    }
+
+    .page-thumb.active .page-thumb-label { color: #e8312a; }
+
+    /* Sidebar export summary */
+    .export-summary {
+      padding: 16px 20px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      font-size: 13px;
+      color: #666;
+      border-bottom: 1px solid #f5f5f0;
+    }
+
+    .summary-row:last-child { border-bottom: none; }
+
+    .summary-value {
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+
+    /* Export buttons in sidebar */
+    .sidebar-actions {
+      padding: 20px;
+      margin-top: auto;
+      border-top: 1px solid #f0f0e8;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── Main preview area ── */
+    .preview-area {
+      background: #2a2a2a;
+      padding: 40px;
+      overflow-y: auto;
+      padding-bottom: 100px;
+    }
+
+    .preview-area-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+
+    .preview-area-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #555;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .page-counter {
+      font-size: 13px;
+      color: #555;
+    }
+
+    /* Individual page display */
+    .page-block {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .page-block.visible { display: flex; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .page-image-wrap {
+      position: relative;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+      max-width: 700px;
+      width: 100%;
+    }
+
+    .page-image-wrap img {
+      width: 100%;
+      display: block;
+    }
+
+    /* Hover overlay with download button */
+    .page-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .page-image-wrap:hover .page-overlay {
+      background: rgba(0,0,0,0.35);
+      opacity: 1;
+    }
+
+    .page-dl-btn {
+      background: white;
+      color: #1a1a1a;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 22px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transform: translateY(4px);
+      transition: transform 0.2s;
+      font-family: 'Noto Sans SC', sans-serif;
+    }
+
+    .page-image-wrap:hover .page-dl-btn {
+      transform: translateY(0);
+    }
+
+    .page-dl-btn:hover {
+      background: #e8312a;
+      color: white;
+    }
+
+    /* Page navigation arrows */
+    .page-nav-arrows {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-arrow {
+      background: #3a3a3a;
+      border: none;
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+
+    .nav-arrow:hover { background: #e8312a; }
+    .nav-arrow:disabled { opacity: 0.3; cursor: not-allowed; }
+    .nav-arrow:disabled:hover { background: #3a3a3a; }
+
+    /* ── Bottom bar ── */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid #e0e0e0;
+      padding: 14px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+    }
+
+    .export-status {
+      font-size: 13px;
+      color: #aaa;
+    }
+
+    .export-status.exporting { color: #e8312a; }
+    .export-status.done { color: #198754; }
+    .export-status.error { color: #e8312a; }
+
+    .bottom-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* ── Shared buttons ── */
+    .btn {
+      padding: 10px 22px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.2s, background 0.2s;
+      font-family: 'Noto Sans SC', sans-serif;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      text-decoration: none;
+    }
+
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #e8312a; color: white; }
+    .btn-secondary { background: #f0f0eb; color: #1a1a1a; }
+    .btn-dark { background: #1a1a1a; color: white; }
+    .btn-sm { padding: 7px 14px; font-size: 13px; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Success banner */
+    #success-banner {
+      display: none;
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a;
+      color: white;
+      padding: 14px 28px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      z-index: 200;
+      border-left: 4px solid #198754;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from { transform: translateX(-50%) translateY(-12px); opacity: 0; }
+      to   { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+
+    /* Empty / error states */
+    .state-message {
+      text-align: center;
+      padding: 80px 40px;
+      color: #888;
+    }
+
+    .state-message h2 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 32px;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+      color: #555;
+    }
+
+    .state-message p {
+      font-size: 15px;
+      max-width: 360px;
+      margin: 0 auto 24px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Assembling Pages</div>
+  <div class="loading-sub">Rendering final layout…</div>
+</div>
+
+<!-- Success banner -->
+<div id="success-banner"></div>
+
+<header>
+  <div class="left">
+    <a href="/static/order.html">← Back</a>
+    <h1>Final Preview</h1>
+    <span class="project-name-badge" id="project-name-badge">Loading…</span>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <span id="header-status" style="font-size:13px;color:#555;"></span>
+  </div>
+</header>
+
+<div class="main" id="main-layout" style="display:none;">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label" style="padding-top:16px;">Pages</div>
+    </div>
+    <div class="page-nav" id="page-nav"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label" style="padding-top:16px;">Summary</div>
+      <div class="export-summary" id="export-summary"></div>
+    </div>
+
+    <div class="sidebar-actions">
+      <button class="btn btn-primary" onclick="exportAndDownloadAll()" id="export-all-btn">
+        ⬇ Export All Pages
+      </button>
+      <a href="/static/index.html" class="btn btn-secondary" style="justify-content:center;">
+        ✓ Done — Back to Projects
+      </a>
+    </div>
+  </div>
+
+  <!-- Preview area -->
+  <div class="preview-area" id="preview-area">
+    <div class="preview-area-header">
+      <span class="preview-area-label">Page Preview</span>
+      <div class="page-nav-arrows">
+        <button class="nav-arrow" id="prev-btn" onclick="goToPage(currentPage - 1)" disabled>←</button>
+        <span class="page-counter" id="page-counter">—</span>
+        <button class="nav-arrow" id="next-btn" onclick="goToPage(currentPage + 1)">→</button>
+      </div>
+    </div>
+    <div id="pages-container"></div>
+  </div>
+
+</div>
+
+<div class="bottom-bar" id="bottom-bar" style="display:none;">
+  <span class="export-status" id="export-status">Ready to export</span>
+  <div class="bottom-actions">
+    <button class="btn btn-secondary" onclick="goToPage(currentPage - 1)" id="bottom-prev">← Prev Page</button>
+    <button class="btn btn-secondary" onclick="goToPage(currentPage + 1)" id="bottom-next">Next Page →</button>
+    <button class="btn btn-primary" onclick="exportAndDownloadAll()" id="bottom-export-btn">
+      ⬇ Export &amp; Download All
+    </button>
+  </div>
+</div>
+
+<script>
+  const API = 'http://localhost:8000';
+  const projectId = sessionStorage.getItem('project_id');
+
+  let totalPages = 0;
+  let currentPage = 1;
+  let projectData = null;
+  let pageUrls = []; // URLs confirmed to exist after export
+
+  // ── Init ──────────────────────────────────────────────────────────
+  async function init() {
+    if (!projectId) {
+      window.location.href = '/static/index.html';
+      return;
+    }
+
+    try {
+      // Load project info
+      const projRes = await fetch(`${API}/projects/${projectId}`);
+      projectData = await projRes.json();
+      document.getElementById('project-name-badge').textContent = projectData.name;
+
+      // Load items to know page count
+      const itemRes = await fetch(`${API}/items/project/${projectId}`);
+      const items = await itemRes.json();
+
+      if (items.length === 0) {
+        showError('No items in this project.', 'Go back and add some images first.');
+        return;
+      }
+
+      // Load template for cells_per_page
+      const tmplRes = await fetch(`${API}/templates/`);
+      const templates = await tmplRes.json();
+      const template = templates.find(t => t.id === projectData.template_id);
+
+      if (!template) {
+        showError('No template assigned.', 'Go back to the order page and assign a template.');
+        return;
+      }
+
+      totalPages = Math.ceil(items.length / template.cells_per_page);
+
+      // Run export (assembles full pages from already-rendered cells)
+      setLoadingText('Assembling pages…');
+      const exportRes = await fetch(`${API}/export/${projectId}`, { method: 'POST' });
+      const exportData = await exportRes.json();
+
+      if (!exportData.ok) {
+        showError('Export failed.', 'Something went wrong on the server.');
+        return;
+      }
+
+      totalPages = exportData.pages;
+
+      // Build page URL list
+      pageUrls = [];
+      for (let i = 1; i <= totalPages; i++) {
+        pageUrls.push(`${API}/export/${projectId}/page/${i}`);
+      }
+
+      // Build UI
+      buildPageBlocks(items, template);
+      buildSidebar(items, template);
+      buildExportSummary(items, template, exportData);
+
+      // Show layout
+      hideLoading();
+      document.getElementById('main-layout').style.display = 'grid';
+      document.getElementById('bottom-bar').style.display = 'flex';
+
+      goToPage(1);
+
+    } catch (err) {
+      console.error(err);
+      showError('Something went wrong.', err.message || 'Check the console for details.');
+    }
+  }
+
+  // ── Build page image blocks ────────────────────────────────────────
+  function buildPageBlocks(items, template) {
+    const container = document.getElementById('pages-container');
+    container.innerHTML = '';
+
+    for (let i = 1; i <= totalPages; i++) {
+      const startIdx = (i - 1) * template.cells_per_page;
+      const endIdx = Math.min(startIdx + template.cells_per_page, items.length);
+      const count = endIdx - startIdx;
+
+      const block = document.createElement('div');
+      block.className = 'page-block';
+      block.id = `page-block-${i}`;
+      block.innerHTML = `
+        <div class="page-image-wrap" id="page-wrap-${i}">
+          <img id="page-img-${i}"
+               src="${pageUrls[i-1]}"
+               alt="Page ${i}"
+               onload="onPageImageLoaded(${i})"
+               onerror="onPageImageError(${i})">
+          <div class="page-overlay">
+            <button class="page-dl-btn" onclick="downloadPage(${i})">
+              ⬇ Download Page ${i}
+            </button>
+          </div>
+        </div>
+      `;
+      container.appendChild(block);
+    }
+  }
+
+  function onPageImageLoaded(pageNum) {
+    // image loaded fine — nothing extra needed
+  }
+
+  function onPageImageError(pageNum) {
+    const img = document.getElementById(`page-img-${pageNum}`);
+    if (img) {
+      img.style.display = 'none';
+      const wrap = document.getElementById(`page-wrap-${pageNum}`);
+      wrap.insertAdjacentHTML('afterbegin', `
+        <div style="padding:60px;text-align:center;color:#888;font-size:14px;background:#f0f0eb;">
+          Page ${pageNum} image not found.<br>
+          <span style="font-size:12px;color:#bbb;">Try re-exporting.</span>
+        </div>
+      `);
+    }
+  }
+
+  // ── Sidebar thumbnails ─────────────────────────────────────────────
+  function buildSidebar(items, template) {
+    const nav = document.getElementById('page-nav');
+    nav.innerHTML = '';
+
+    for (let i = 1; i <= totalPages; i++) {
+      const startIdx = (i - 1) * template.cells_per_page;
+      const endIdx = Math.min(startIdx + template.cells_per_page, items.length);
+      const count = endIdx - startIdx;
+
+      nav.insertAdjacentHTML('beforeend', `
+        <div class="page-thumb" id="thumb-${i}" onclick="goToPage(${i})">
+          <img id="thumb-img-${i}" src="${pageUrls[i-1]}" alt="Page ${i}"
+               onerror="this.style.background='#f0f0eb'">
+          <div class="page-thumb-info">
+            <div class="page-thumb-label">Page ${i}</div>
+            <div class="page-thumb-count">${count} item${count !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+      `);
+    }
+  }
+
+  // ── Export summary ─────────────────────────────────────────────────
+  function buildExportSummary(items, template, exportData) {
+    const el = document.getElementById('export-summary');
+    el.innerHTML = `
+      <div class="summary-row">
+        <span>Items</span>
+        <span class="summary-value">${items.length}</span>
+      </div>
+      <div class="summary-row">
+        <span>Pages</span>
+        <span class="summary-value">${totalPages}</span>
+      </div>
+      <div class="summary-row">
+        <span>Template</span>
+        <span class="summary-value">${template.name}</span>
+      </div>
+      <div class="summary-row">
+        <span>Format</span>
+        <span class="summary-value">${template.page_width_px}×${template.page_height_px}</span>
+      </div>
+      <div class="summary-row">
+        <span>Status</span>
+        <span class="summary-value" style="color:#198754;">✓ Exported</span>
+      </div>
+    `;
+  }
+
+  // ── Page navigation ────────────────────────────────────────────────
+  function goToPage(pageNum) {
+    if (pageNum < 1 || pageNum > totalPages) return;
+
+    // Hide all blocks
+    document.querySelectorAll('.page-block').forEach(b => b.classList.remove('visible'));
+    document.querySelectorAll('.page-thumb').forEach(t => t.classList.remove('active'));
+
+    // Show target
+    const block = document.getElementById(`page-block-${pageNum}`);
+    if (block) block.classList.add('visible');
+
+    const thumb = document.getElementById(`thumb-${pageNum}`);
+    if (thumb) {
+      thumb.classList.add('active');
+      thumb.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    currentPage = pageNum;
+
+    // Update counter
+    document.getElementById('page-counter').textContent = `Page ${pageNum} of ${totalPages}`;
+
+    // Update arrows
+    document.getElementById('prev-btn').disabled = pageNum === 1;
+    document.getElementById('next-btn').disabled = pageNum === totalPages;
+    document.getElementById('bottom-prev').disabled = pageNum === 1;
+    document.getElementById('bottom-next').disabled = pageNum === totalPages;
+  }
+
+  // ── Download individual page ───────────────────────────────────────
+  async function downloadPage(pageNum) {
+    const url = pageUrls[pageNum - 1];
+    const projectName = (projectData?.name || 'flyer').replace(/\s+/g, '_');
+    const filename = `${projectName}_page_${pageNum}.jpg`;
+    triggerDownload(url, filename);
+  }
+
+  // ── Export all & download ──────────────────────────────────────────
+  async function exportAndDownloadAll() {
+    const btn = document.getElementById('export-all-btn');
+    const bottomBtn = document.getElementById('bottom-export-btn');
+    const statusEl = document.getElementById('export-status');
+
+    btn.disabled = true;
+    bottomBtn.disabled = true;
+    statusEl.textContent = 'Exporting…';
+    statusEl.className = 'export-status exporting';
+
+    try {
+      // Re-run export to make sure files are fresh
+      const exportRes = await fetch(`${API}/export/${projectId}`, { method: 'POST' });
+      const exportData = await exportRes.json();
+
+      if (!exportData.ok) throw new Error('Export failed');
+
+      statusEl.textContent = `Exported ${exportData.pages} page(s) — downloading…`;
+
+      // Download each page with a small delay between them
+      const projectName = (projectData?.name || 'flyer').replace(/\s+/g, '_');
+      for (let i = 1; i <= exportData.pages; i++) {
+        const url = `${API}/export/${projectId}/page/${i}`;
+        const filename = `${projectName}_page_${i}.jpg`;
+        await delay(300);
+        triggerDownload(url, filename);
+      }
+
+      statusEl.textContent = `✓ ${exportData.pages} page(s) downloaded`;
+      statusEl.className = 'export-status done';
+
+      showBanner(`✓ ${exportData.pages} page${exportData.pages > 1 ? 's' : ''} exported successfully`);
+
+      // Update project status display in header
+      document.getElementById('header-status').textContent = '✓ Exported';
+      document.getElementById('header-status').style.color = '#198754';
+
+    } catch (err) {
+      statusEl.textContent = 'Export failed — try again';
+      statusEl.className = 'export-status error';
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      bottomBtn.disabled = false;
+    }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────
+  function triggerDownload(url, filename) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function setLoadingText(text) {
+    const el = document.querySelector('.loading-text');
+    if (el) el.textContent = text;
+  }
+
+  function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    overlay.classList.add('hidden');
+    setTimeout(() => overlay.remove(), 500);
+  }
+
+  function showBanner(msg) {
+    const banner = document.getElementById('success-banner');
+    banner.textContent = msg;
+    banner.style.display = 'block';
+    setTimeout(() => { banner.style.display = 'none'; }, 4000);
+  }
+
+  function showError(title, detail) {
+    hideLoading();
+    document.getElementById('main-layout').style.display = 'block';
+    document.getElementById('main-layout').innerHTML = `
+      <div class="state-message" style="grid-column:1/-1;padding:120px 40px;">
+        <h2>${title}</h2>
+        <p>${detail}</p>
+        <a href="/static/order.html" class="btn btn-primary">← Back to Order Page</a>
+      </div>
+    `;
+  }
+
+  // ── Keyboard nav ──────────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goToPage(currentPage + 1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goToPage(currentPage - 1);
+  });
+
+  init();
+</script>
+
+</body>
+</html>

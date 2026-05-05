@@ -512,26 +512,30 @@
     const editImageId = sessionStorage.getItem('edit_image_id');
     
     if (editImageId) {
-      // show all project items for editing
+      // Coming from order page to edit — load all project items
       const itemRes = await fetch(`${API}/items/project/${projectId}`);
       items = await itemRes.json();
-      imageQueue = items.map(it => it.image).filter(Boolean);
-      // jump to the specific image
-      const jumpIndex = imageQueue.findIndex(img => img && items.find(it => 
-        it.library_image_id === editImageId && it.image && it.image.url === img.url
-      ));
+      // Build imageQueue from full library objects so .id is always available
+      imageQueue = items.map(it => allImages.find(img => img.id === it.library_image_id) || it.image).filter(Boolean);
+      // Jump to the specific item
+      const jumpIndex = items.findIndex(it => it.library_image_id === editImageId);
       currentIndex = jumpIndex > -1 ? jumpIndex : 0;
       sessionStorage.removeItem('edit_image_id');
     } else {
-      // normal flow — use selected image IDs
+      // Normal flow — images just selected on upload page
       if (!selectedImageIds.length) {
         alert('No images found. Please start again.');
         window.location.href = '/static/index.html';
         return;
       }
-      imageQueue = allImages.filter(img => selectedImageIds.includes(img.id));
+      // Full image objects (with .id) in selection order
+      imageQueue = selectedImageIds
+        .map(id => allImages.find(img => img.id === id))
+        .filter(Boolean);
       const itemRes = await fetch(`${API}/items/project/${projectId}`);
-      items = await itemRes.json();
+      const existingItems = await itemRes.json();
+      // Pre-fill items array indexed to match imageQueue; null = not yet created
+      items = imageQueue.map(img => existingItems.find(it => it.library_image_id === img.id) || null);
     }
 
     updateDisplay();
@@ -626,7 +630,7 @@
   
   async function saveCurrentItem() {
     const existing = items[currentIndex];
-    if (!existing || !existing.id) return;
+    const currentImage = imageQueue[currentIndex];
 
     const payload = {
       price_prefix: document.getElementById('price-prefix').value || null,
@@ -640,13 +644,29 @@
       image_scale: document.getElementById('scale-slider').value / 100,
     };
 
-    const res = await fetch(`${API}/items/${existing.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const updated = await res.json();
-    items[currentIndex] = { ...items[currentIndex], ...updated };
+    if (!existing || !existing.id) {
+      // Item doesn't exist yet — create it
+      const res = await fetch(`${API}/items/project/${projectId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          library_image_id: currentImage.id,
+          position: currentIndex + 1,
+          ...payload,
+        })
+      });
+      const created = await res.json();
+      items[currentIndex] = created;
+    } else {
+      // Item already exists — update it
+      const res = await fetch(`${API}/items/${existing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const updated = await res.json();
+      items[currentIndex] = { ...items[currentIndex], ...updated };
+    }
   }
 
 

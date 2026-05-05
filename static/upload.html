@@ -455,6 +455,8 @@
       return;
     }
 
+    const isExistingProject = !!projectId;
+
     // create project if we don't have one yet
     if (!projectId) {
       const name = prompt('Give this project a name:', 'Week of ' + new Date().toLocaleDateString());
@@ -469,11 +471,19 @@
       projectId = project.id;
     }
 
-    // save selected image IDs to sessionStorage to use on next page
-    sessionStorage.setItem('project_id', projectId);
-    sessionStorage.setItem('selected_image_ids', JSON.stringify(allIds));
+    // Merge new IDs with any already in sessionStorage (de-duplicated)
+    const existing = JSON.parse(sessionStorage.getItem('selected_image_ids') || '[]');
+    const merged = [...new Set([...existing, ...allIds])];
 
-    window.location.href = `/static/template.html`;
+    sessionStorage.setItem('project_id', projectId);
+    sessionStorage.setItem('selected_image_ids', JSON.stringify(merged));
+
+    // New project → pick template first; existing project → go straight to editor
+    if (isExistingProject) {
+      window.location.href = '/static/editor.html';
+    } else {
+      window.location.href = '/static/template.html';
+    }
   }
 </script>
 
