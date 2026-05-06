@@ -163,7 +163,7 @@
 </header>
 
 <div class="container">
-  <a href="/static/upload.html" class="new-project-btn">+ Start New Project</a>
+  <button onclick="startNewProject()" class="new-project-btn">+ Start New Project</button>
 
   <div class="section-title">Past Projects</div>
   <div id="project-list" class="project-list">
@@ -173,6 +173,26 @@
 
 <script>
   const API = 'http://localhost:8000';
+
+  async function startNewProject() {
+    const name = prompt('Give this project a name:', 'Week of ' + new Date().toLocaleDateString());
+    if (!name) return;
+    const res = await fetch(`${API}/projects/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    const project = await res.json();
+    sessionStorage.setItem('project_id', project.id);
+    sessionStorage.removeItem('selected_image_ids');
+    window.location.href = `/static/upload.html?project_id=${project.id}`;
+  }
+
+  function editProject(id) {
+    sessionStorage.setItem('project_id', id);
+    sessionStorage.removeItem('selected_image_ids');
+    window.location.href = `/static/upload.html?project_id=${id}`;
+  }
 
   async function loadProjects() {
     const res = await fetch(`${API}/projects/`);
@@ -194,7 +214,7 @@
           </div>
         </div>
         <div class="project-actions">
-          <a href="/static/upload.html?project_id=${p.id}" class="btn btn-edit">Edit</a>
+          <button class="btn btn-edit" onclick="editProject('${p.id}')">Edit</button>
           <button class="btn btn-export" onclick="exportProject('${p.id}')">Export</button>
           <button class="btn btn-delete" onclick="deleteProject('${p.id}')">Delete</button>
         </div>

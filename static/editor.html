@@ -479,7 +479,7 @@
 <div class="nav-bar">
   <div class="nav-left">
     <button class="btn btn-ghost" id="prev-btn" onclick="prevItem()">← Prev</button>
-    <button class="btn btn-secondary" onclick="saveAndSkip()">Save & Skip</button>
+    <button class="btn btn-secondary" onclick="skipToOrdering()">Skip to Ordering</button>
   </div>
   <div style="display:flex;align-items:center;gap:16px">
     <button class="add-more-btn" onclick="addMoreImages()">+ Add more images</button>
@@ -490,7 +490,6 @@
 <script>
   const API = 'http://localhost:8000';
   const projectId = sessionStorage.getItem('project_id');
-  const selectedImageIds = JSON.parse(sessionStorage.getItem('selected_image_ids') || '[]');
 
   let items = [];         // items already saved to DB for this project
   let imageQueue = [];    // library image objects for selected images
@@ -505,37 +504,27 @@
       return;
     }
 
-    const res = await fetch(`${API}/library/`);
-    const allImages = await res.json();
+    // Load all project items — items always exist before editor loads now
+    const itemRes = await fetch(`${API}/items/project/${projectId}`);
+    items = await itemRes.json();
 
-    // if coming from order page to edit a specific item
+    if (!items.length) {
+      alert('No items found. Please add images first.');
+      window.location.href = `/static/upload.html?project_id=${projectId}`;
+      return;
+    }
+
+    // Build imageQueue from library for display
+    const libRes = await fetch(`${API}/library/`);
+    const allImages = await libRes.json();
+    imageQueue = items.map(it => allImages.find(img => img.id === it.library_image_id) || it.image).filter(Boolean);
+
+    // If coming from order page to edit a specific item, jump to it
     const editImageId = sessionStorage.getItem('edit_image_id');
-    
     if (editImageId) {
-      // Coming from order page to edit — load all project items
-      const itemRes = await fetch(`${API}/items/project/${projectId}`);
-      items = await itemRes.json();
-      // Build imageQueue from full library objects so .id is always available
-      imageQueue = items.map(it => allImages.find(img => img.id === it.library_image_id) || it.image).filter(Boolean);
-      // Jump to the specific item
       const jumpIndex = items.findIndex(it => it.library_image_id === editImageId);
       currentIndex = jumpIndex > -1 ? jumpIndex : 0;
       sessionStorage.removeItem('edit_image_id');
-    } else {
-      // Normal flow — images just selected on upload page
-      if (!selectedImageIds.length) {
-        alert('No images found. Please start again.');
-        window.location.href = '/static/index.html';
-        return;
-      }
-      // Full image objects (with .id) in selection order
-      imageQueue = selectedImageIds
-        .map(id => allImages.find(img => img.id === id))
-        .filter(Boolean);
-      const itemRes = await fetch(`${API}/items/project/${projectId}`);
-      const existingItems = await itemRes.json();
-      // Pre-fill items array indexed to match imageQueue; null = not yet created
-      items = imageQueue.map(img => existingItems.find(it => it.library_image_id === img.id) || null);
     }
 
     updateDisplay();
@@ -629,8 +618,8 @@
   }
   
   async function saveCurrentItem() {
-    const existing = items[currentIndex];
-    const currentImage = imageQueue[currentIndex];
+    const item = items[currentIndex];
+    if (!item || !item.id) return;
 
     const payload = {
       price_prefix: document.getElementById('price-prefix').value || null,
@@ -644,29 +633,13 @@
       image_scale: document.getElementById('scale-slider').value / 100,
     };
 
-    if (!existing || !existing.id) {
-      // Item doesn't exist yet — create it
-      const res = await fetch(`${API}/items/project/${projectId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          library_image_id: currentImage.id,
-          position: currentIndex + 1,
-          ...payload,
-        })
-      });
-      const created = await res.json();
-      items[currentIndex] = created;
-    } else {
-      // Item already exists — update it
-      const res = await fetch(`${API}/items/${existing.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const updated = await res.json();
-      items[currentIndex] = { ...items[currentIndex], ...updated };
-    }
+    const res = await fetch(`${API}/items/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const updated = await res.json();
+    items[currentIndex] = { ...items[currentIndex], ...updated };
   }
 
 
@@ -681,14 +654,9 @@
     }
   }
 
-  async function saveAndSkip() {
+  async function skipToOrdering() {
     await saveCurrentItem();
-    if (currentIndex < imageQueue.length - 1) {
-      currentIndex++;
-      updateDisplay();
-    } else {
-      window.location.href = '/static/order.html';
-    }
+    window.location.href = '/static/order.html';
   }
 
   async function prevItem() {

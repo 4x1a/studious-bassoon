@@ -325,7 +325,13 @@
 <script>
   const API = 'http://localhost:8000';
   const params = new URLSearchParams(window.location.search);
-  let projectId = params.get('project_id');
+  const projectId = params.get('project_id');
+
+  // project_id is always in the URL now (set by index.html before redirecting)
+  if (!projectId) {
+    window.location.href = '/static/index.html';
+  }
+
   let selectedLibraryIds = new Set();
   let uploadedImageIds = [];
 
@@ -355,11 +361,9 @@
   async function handleFiles(files) {
     const queue = document.getElementById('upload-queue');
     const fileArray = Array.from(files);
-
     for (const file of fileArray) {
       const itemId = `upload-${Date.now()}-${Math.random()}`;
       const preview = URL.createObjectURL(file);
-
       queue.insertAdjacentHTML('beforeend', `
         <div class="upload-item" id="${itemId}">
           <img src="${preview}">
@@ -370,7 +374,6 @@
           </div>
         </div>
       `);
-
       await uploadFile(file, itemId);
     }
   }
@@ -378,29 +381,18 @@
   async function uploadFile(file, itemId) {
     const fill = document.getElementById(`fill-${itemId}`);
     const status = document.getElementById(`status-${itemId}`);
-
-    // animate progress to 60% while uploading
     fill.style.width = '60%';
-
     try {
       const formData = new FormData();
       formData.append('file', file);
-
-      const res = await fetch(`${API}/library/`, {
-        method: 'POST',
-        body: formData
-      });
-
+      const res = await fetch(`${API}/library/`, { method: 'POST', body: formData });
       if (!res.ok) throw new Error('Upload failed');
-
       const data = await res.json();
       uploadedImageIds.push(data.id);
-
       fill.style.width = '100%';
       status.textContent = 'Done';
       status.className = 'upload-status done';
       updateSelectedCount();
-
     } catch (err) {
       fill.style.width = '100%';
       fill.style.background = '#e8312a';
@@ -415,18 +407,29 @@
     const res = await fetch(`${API}/library/`);
     const images = await res.json();
 
+    // Grey out images already in this project
+    const itemRes = await fetch(`${API}/items/project/${projectId}`);
+    const existingItems = await itemRes.json();
+    const existingImageIds = new Set(existingItems.map(it => it.library_image_id));
+
     if (images.length === 0) {
       grid.innerHTML = '<div class="empty-library">No images in library yet. Upload some first!</div>';
       return;
     }
 
-    grid.innerHTML = images.map(img => `
-      <div class="library-item" id="lib-${img.id}" onclick="toggleLibraryItem('${img.id}')">
-        <div class="checkmark">✓</div>
-        <img src="${API}${img.url}" alt="${img.name}">
-        <div class="library-item-name">${img.name || 'Untitled'}</div>
-      </div>
-    `).join('');
+    grid.innerHTML = images.map(img => {
+      const inProject = existingImageIds.has(img.id);
+      return `
+        <div class="library-item ${inProject ? '' : ''}" id="lib-${img.id}"
+             onclick="${inProject ? '' : `toggleLibraryItem('${img.id}')`}"
+             style="${inProject ? 'opacity:0.4;cursor:not-allowed;' : ''}">
+          <div class="checkmark">✓</div>
+          ${inProject ? '<div style="position:absolute;top:6px;right:6px;background:#198754;color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;">✓</div>' : ''}
+          <img src="${API}${img.url}" alt="${img.name}">
+          <div class="library-item-name">${inProject ? '(already added)' : img.name || 'Untitled'}</div>
+        </div>
+      `;
+    }).join('');
   }
 
   function toggleLibraryItem(id) {
@@ -455,33 +458,31 @@
       return;
     }
 
-    const isExistingProject = !!projectId;
+    // Get current item count for positioning
+    const itemRes = await fetch(`${API}/items/project/${projectId}`);
+    const existingItems = await itemRes.json();
+    let nextPosition = existingItems.length + 1;
 
-    // create project if we don't have one yet
-    if (!projectId) {
-      const name = prompt('Give this project a name:', 'Week of ' + new Date().toLocaleDateString());
-      if (!name) return;
-
-      const res = await fetch(`${API}/projects/`, {
+    // Create an item in the project for each selected image
+    for (const imageId of allIds) {
+      await fetch(`${API}/items/project/${projectId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ library_image_id: imageId, position: nextPosition++ })
       });
-      const project = await res.json();
-      projectId = project.id;
     }
 
-    // Merge new IDs with any already in sessionStorage (de-duplicated)
-    const existing = JSON.parse(sessionStorage.getItem('selected_image_ids') || '[]');
-    const merged = [...new Set([...existing, ...allIds])];
-
     sessionStorage.setItem('project_id', projectId);
-    sessionStorage.setItem('selected_image_ids', JSON.stringify(merged));
 
-    // New project → pick template first; existing project → go straight to editor
-    if (isExistingProject) {
+    // Check if project has a template already
+    const projRes = await fetch(`${API}/projects/${projectId}`);
+    const project = await projRes.json();
+
+    if (project.template_id) {
+      // Existing project with template — go to editor
       window.location.href = '/static/editor.html';
     } else {
+      // New project — pick template first
       window.location.href = '/static/template.html';
     }
   }
